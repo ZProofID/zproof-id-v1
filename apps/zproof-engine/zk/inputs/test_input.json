@@ -1,0 +1,14 @@
+{
+  "score": 82,
+  "gamesPassed": 3,
+  "botRiskScore": 0,
+  "secret": 123456789,
+
+  "minScore": 65,
+  "minGamesPassed": 3,
+  "maxBotRiskScore": 20,
+
+  "challengeHash": 1111,
+  "walletHash": 2222,
+  "appHash": 3333
+}
