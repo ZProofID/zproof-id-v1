@@ -1,0 +1,20 @@
+{
+  "name": "zproof",
+  "private": true,
+  "workspaces": [
+    "apps/zproof-engine",
+    "apps/zproof-app"
+  ],
+  "scripts": {
+    "install:all": "npm install --workspaces",
+    "backend": "npm run dev --workspace apps/zproof-engine",
+    "frontend": "npm run dev --workspace apps/zproof-app",
+    "dev": "concurrently -n BACKEND,FRONTEND -c blue,green \"npm run backend\" \"npm run frontend\"",
+    "build": "npm run build --workspace apps/zproof-engine && npm run build --workspace apps/zproof-app",
+    "lint": "npm run lint --workspace apps/zproof-engine && npm run lint --workspace apps/zproof-app",
+    "test": "npm run test --workspace apps/zproof-engine && npm run test --workspace apps/zproof-app"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0"
+  }
+}

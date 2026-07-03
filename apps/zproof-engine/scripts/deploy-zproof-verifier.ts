@@ -23,7 +23,7 @@ const WASM_PATH =
   process.env.ZPROOF_VERIFIER_WASM ||
   path.resolve(
     process.cwd(),
-    "../../contracts/zproof-groth16-verifier/target/wasm32v1-none/release/zproof_groth16_verifier.wasm"
+    "../../contracts/verifier/target/wasm32v1-none/release/zproof_groth16_verifier.wasm"
   );
 
 const VK_PATH =

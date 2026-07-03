@@ -4,6 +4,7 @@ import {
   Keypair,
   Networks,
   TransactionBuilder,
+  nativeToScVal,
   rpc,
   scValToNative,
 } from "@stellar/stellar-sdk";
@@ -21,6 +22,24 @@ type VerifyOnchainParams = {
     curve?: string;
   };
   publicSignals: string[];
+};
+
+type StellarNetwork = "TESTNET" | "PUBLIC";
+
+type SubmitVerifyOnchainParams = {
+  signedXdr: string;
+  network: StellarNetwork;
+};
+type PrepareVerifyOnchainParams = {
+  proof: {
+    pi_a: string[];
+    pi_b: string[][];
+    pi_c: string[];
+    protocol?: string;
+    curve?: string;
+  };
+  publicSignals: string[];
+  publicKey: string;
 };
 
 const rpcUrl = process.env.SOROBAN_RPC_URL;
@@ -97,5 +116,53 @@ export async function verifyZProofOnchain(params: VerifyOnchainParams) {
     status: result.status,
     verified: returnValue ? Boolean(scValToNative(returnValue)) : false,
     raw: result,
+  };
+}
+
+export async function submitVerifyZProofOnchain(
+  params: SubmitVerifyOnchainParams
+) {
+  const networkPassphrase = Networks[params.network];
+
+  const tx = TransactionBuilder.fromXDR(params.signedXdr, networkPassphrase);
+
+  const result = await submitPreparedTransaction(tx);
+  const returnValue = result.returnValue;
+
+  return {
+    transactionHash: result.hash,
+    status: result.status,
+    verified: returnValue ? Boolean(scValToNative(returnValue)) : false,
+    raw: result,
+  };
+}
+
+export async function simulateVerifyZProofOnchain(
+  params: PrepareVerifyOnchainParams
+) {
+  const account = await server.getAccount(params.publicKey);
+
+  const proofArg = proofToScVal(params.proof);
+  const signalsArg = publicSignalsToScVal(params.publicSignals);
+
+  const tx = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase,
+  })
+    .addOperation(contract.call("zproof_verify", proofArg, signalsArg))
+    .setTimeout(60)
+    .build();
+
+  const simulated = await server.simulateTransaction(tx);
+
+  if (rpc.Api.isSimulationError(simulated)) {
+    throw new Error(`Soroban simulation failed: ${JSON.stringify(simulated)}`);
+  }
+
+  const prepared = rpc.assembleTransaction(tx, simulated).build();
+
+  return {
+    xdr: prepared.toXDR(),
+    status: "SUCCESS",
   };
 }

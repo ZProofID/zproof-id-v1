@@ -17,6 +17,44 @@ import { HumanityVerification } from "../models/HumanityVerification.js";
 
 export const humanityRouter = Router();
 
+async function saveWalletVerificationRecord(params: {
+  wallet: string;
+  challengeId: string;
+  verification: any;
+  attestation: any;
+  zkProof: any;
+}) {
+  const { wallet, challengeId, verification, attestation, zkProof } = params;
+
+  return HumanityVerification.findOneAndUpdate(
+    { wallet },
+    {
+      $inc: { verificationCount: 1 },
+
+      $set: {
+        latestChallengeId: challengeId,
+        latestPassed: verification.passed,
+        latestConfidenceLevel: verification.confidenceLevel,
+        latestAdjustedHumanityScore: verification.adjustedHumanityScore,
+        latestGamesPassed: verification.gamesPassed,
+        latestTotalGames: verification.totalGames,
+        latestBotRiskScore: verification.botRiskSignals?.botRiskScore,
+
+        latestAttestation: attestation,
+        latestZkProof: zkProof,
+        latestResult: verification,
+
+        lastVerifiedAt: new Date(),
+      },
+    },
+    {
+      upsert: true,
+      new: true,
+      setDefaultsOnInsert: true,
+    }
+  );
+}
+
 const createChallengeSchema = z.object({
   wallet: z.string().min(1).optional(),
   sessionId: z.string().min(1).optional(),
@@ -216,6 +254,8 @@ humanityRouter.post("/submit-verification", async (req, res) => {
     results: results as VerifyGameResult[],
   });
 
+  markChallengeUsed(challengeId);
+
   const issuedAt = new Date().toISOString();
   const expiresAt = new Date(
     Date.now() + 180 * 24 * 60 * 60 * 1000
@@ -250,72 +290,20 @@ humanityRouter.post("/submit-verification", async (req, res) => {
       signedXdr,
       network,
     });
-
     zkProof = {
       ...zProof,
       contractId: process.env.ZPROOF_VERIFIER_CONTRACT_ID,
     };
   } catch (error) {
-    console.error("ZK proof submission failed:", error);
-
-    return res.status(500).json({
-      error: "ZK proof submission failed",
-    });
+    console.error("ZK proof generation failed:", error);
   }
 
-  markChallengeUsed(challengeId);
-
-  const storedVerificationResult = {
+  return res.json({
     ...verification,
     issuedAt,
     expiresAt,
     attestation,
     zkProof,
-  };
-
-  let walletRecord = null;
-
-  if (resolvedWallet) {
-    walletRecord = await HumanityVerification.findOneAndUpdate(
-      { wallet: resolvedWallet },
-      {
-        $inc: {
-          verificationCount: 1,
-        },
-        $set: {
-          latestChallengeId: challengeId,
-          latestPassed: verification.passed,
-          latestConfidenceLevel: verification.confidenceLevel,
-          latestAverageHumanityScore: verification.averageHumanityScore,
-          latestAdjustedHumanityScore: verification.adjustedHumanityScore,
-          latestAverageAccuracy: verification.averageAccuracy,
-          latestGamesPassed: verification.gamesPassed,
-          latestTotalGames: verification.totalGames,
-          latestVarianceAnalytics: verification.varianceAnalytics,
-          latestBotRiskSignals: verification.botRiskSignals,
-          latestAttestation: attestation,
-          latestZkProof: zkProof,
-          latestResult: storedVerificationResult,
-          lastVerifiedAt: new Date(),
-        },
-      },
-      {
-        upsert: true,
-        new: true,
-        setDefaultsOnInsert: true,
-      }
-    );
-  }
-
-  return res.json({
-    ...storedVerificationResult,
-    walletRecord: walletRecord
-      ? {
-          wallet: walletRecord.wallet,
-          verificationCount: walletRecord.verificationCount,
-          lastVerifiedAt: walletRecord.lastVerifiedAt,
-        }
-      : null,
     backendReadyPayload: {
       analyticsVersion: verification.analyticsVersion,
       challengeId,
@@ -476,30 +464,6 @@ humanityRouter.post("/verify", async (req, res) => {
       zkProof,
     },
   });
-});
-
-humanityRouter.get("/wallet/:wallet", async (req, res) => {
-  try {
-    const wallet = req.params.wallet?.trim();
-
-    if (!wallet) {
-      return res.status(400).json({
-        error: "Wallet is required",
-      });
-    }
-
-    const record = await HumanityVerification.findOne({ wallet }).lean().exec();
-
-    return res.json({
-      record: record ?? null,
-    });
-  } catch (error) {
-    console.error("Failed to fetch wallet verification:", error);
-
-    return res.status(500).json({
-      error: "Failed to fetch wallet verification",
-    });
-  }
 });
 
 humanityRouter.get("/public-key", (_req, res) => {
