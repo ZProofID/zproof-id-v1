@@ -131,3 +131,9 @@ The frontend and backend will automatically run concurrently.
 - The backend requires a valid `SOROBAN_SOURCE_SECRET` before it can prepare or submit Soroban transactions.
 - The frontend communicates with the backend running in `apps/zproof-engine`.
 - This project is currently configured for **Stellar Testnet**.
+
+> **Hackathon Note**
+>
+> For ease of evaluation, this repository includes a pre-configured `.env` file containing a **Stellar Testnet** account. These credentials are for demonstration purposes only and do **not** control any production assets.
+>
+> No additional configuration is required to run the project.
